@@ -2,7 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreUserRequest;
+use App\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 class UsersController extends Controller
 {
@@ -11,9 +16,16 @@ class UsersController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    public function index(Request $request)
     {
-        return view('users.index');
+        $filterKeyword = $request->get('keyword');
+
+        if ($filterKeyword) {
+            $users = \App\User::where('email', 'LIKE', "%$filterKeyword%")->paginate(10);
+        } else {
+            $users = User::paginate(10);
+        }
+        return view('users.index', compact('users'));
     }
 
     /**
@@ -34,7 +46,23 @@ class UsersController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $new_user = new User();
+        $new_user->name = $request->get('name');
+        $new_user->username = $request->get('username');
+        $new_user->roles = json_encode($request->get('roles'));
+        $new_user->name = $request->get('name');
+        $new_user->address = $request->get('address');
+        $new_user->phone = $request->get('phone');
+        $new_user->email = $request->get('email');
+        $new_user->password = Hash::make($request->get('password'));
+
+        if ($request->file('avatar')) {
+            $file = $request->file('avatar')->store('avatars', 'public');
+            $new_user->avatar = $file;
+        }
+
+        $new_user->save();
+        return redirect('/users')->with('success', 'User successfully created');
     }
 
     /**
@@ -45,7 +73,9 @@ class UsersController extends Controller
      */
     public function show($id)
     {
-        //
+        $user = User::findOrFail($id);
+
+        return view('users.show', compact('user'));
     }
 
     /**
@@ -56,7 +86,9 @@ class UsersController extends Controller
      */
     public function edit($id)
     {
-        //
+        $user = User::findOrFail($id);
+
+        return view('users.edit', compact('user'));
     }
 
     /**
@@ -68,7 +100,24 @@ class UsersController extends Controller
      */
     public function update(Request $request, $id)
     {
-        //
+        $user = User::findOrFail($id);
+
+        $user->name = $request->get('name');
+        $user->roles = json_encode($request->get('roles'));
+        $user->address = $request->get('address');
+        $user->phone = $request->get('phone');
+        $user->status = $request->get('status');
+        if ($request->file('avatar')) {
+            if ($user->avatar && file_exists(storage_path('app/public/' . $user->avatar))) {
+                Storage::delete('public/' . $user->avatar);
+            }
+            $file = $request->file('avatar')->store('avatars', 'public');
+            $user->avatar = $file;
+        }
+
+        $user->save();
+
+        return redirect('/users')->with('success', 'User succesfully updated');
     }
 
     /**
@@ -79,6 +128,8 @@ class UsersController extends Controller
      */
     public function destroy($id)
     {
-        //
+        $user = User::findOrFail($id);
+        $user->delete();
+        return redirect('/users')->with('success', 'User successfully deleted');
     }
 }
